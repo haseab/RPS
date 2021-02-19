@@ -6,12 +6,17 @@ from reward_system import RewardSystem
 from punish_system import PunishSystem
 import os
 import ast
+import requests
 
 class Monitor:
     def __init__(self):
         self.dates = []
         self.efficiencies = []
         self.inefficiencies = []
+
+        path = os.path.dirname(os.getcwd()) + r"\local\ifttt_key.txt"
+        with open(path, 'r') as file:
+            self.key = file.readline()
 
     def check_reward_status(self, reward_sys, goal_efficiency, actual_efficiency, r_level, end_datetime):
         current_datetime = datetime.now()
@@ -21,10 +26,11 @@ class Monitor:
 
         if current_datetime > end_datetime:
             if actual_efficiency > goal_efficiency:
-                string = f"""Congratulations!! Choose one of the following: \n"""
+                string = ""
                 for reward in reward_sys.rewards[r_level]:
                     string += f" --->  {reward} \n"
-                print(string)
+                resp = requests.post(f"https://maker.ifttt.com/trigger/rewarded/with/key/{self.key}",
+                                     data={"value1": r_level, "value2": string})
                 plt.scatter(self.dates, self.efficiencies)
                 plt.show()
             return False
@@ -38,11 +44,8 @@ class Monitor:
 
         if current_datetime > end_datetime:
             if actual_inefficiency > goal_inefficiency:
-                string = f"""
-                            Damn!! You just lost! Here's your punishment:
-                            {p_type} for {p_amount}
-                            """
-                print(string)
+                string = f"""{p_type} for {p_amount}"""
+                resp = requests.post(f"https://maker.ifttt.com/trigger/punished/with/key/{self.key}", data={"value1": string})
                 plt.scatter(self.dates, self.inefficiencies)
                 plt.show()
             return False
