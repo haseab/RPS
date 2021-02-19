@@ -2,6 +2,10 @@ import time
 from datetime import datetime, timedelta
 from helper import Helper
 import matplotlib.pyplot as plt
+from reward_system import RewardSystem
+from punish_system import PunishSystem
+import os
+import ast
 
 class Monitor:
     def __init__(self):
@@ -15,54 +19,102 @@ class Monitor:
         self.dates.append(current_datetime)
         self.efficiencies.append(actual_efficiency)
 
-        if actual_efficiency > goal_efficiency and current_datetime > end_datetime:
-            string = f"""Congratulations!! Choose one of the following: \n"""
-            for reward in reward_sys.rewards[r_level]:
-                string += f" --->  {reward} \n"
+        if current_datetime > end_datetime:
+            if actual_efficiency > goal_efficiency:
+                string = f"""Congratulations!! Choose one of the following: \n"""
+                for reward in reward_sys.rewards[r_level]:
+                    string += f" --->  {reward} \n"
+                print(string)
+                plt.scatter(self.dates, self.efficiencies)
+                plt.show()
+            return False
+        return True
 
-            plt.scatter(self.dates, self.efficiencies)
-            plt.show()
-            return True
-        return False
-
-    def check_punishment_status(self, punish_sys, goal_inefficiency, actual_inefficiency,p_type, p_amount, end_datetime):
+    def check_punishment_status(self, goal_inefficiency, actual_inefficiency,p_type, p_amount, end_datetime):
         current_datetime = datetime.now()
 
         self.dates.append(current_datetime)
-        self.efficiencies.append(actual_inefficiency)
+        self.inefficiencies.append(actual_inefficiency)
 
-        if actual_inefficiency > goal_inefficiency and current_datetime > end_datetime:
-            string = f"""
-Damn!! You just lost! Here's your punishment:
-{p_type} for {p_amount}
-"""
+        if current_datetime > end_datetime:
+            if actual_inefficiency > goal_inefficiency:
+                string = f"""
+                            Damn!! You just lost! Here's your punishment:
+                            {p_type} for {p_amount}
+                            """
+                print(string)
+                plt.scatter(self.dates, self.inefficiencies)
+                plt.show()
+            return False
+        return True
 
-            plt.scatter(self.dates, self.inefficiencies)
-            plt.show()
-            return True
-        return False
+    @staticmethod
+    def generate_rp(system, keyword, debug=False):
+        # Setting all random parameters
+        results = system.samplepick(debug=debug)
 
-    def monitor_rps(self, reward_sys, punish_sys, loader, analyzer):
+        with open(f"saved_{keyword}.txt", 'a') as file:
+            file.write(f"Date created: {datetime.now()}" + "\n")
+            file.write(str(results) + "\n" + "\n")
+        return results
+
+    @staticmethod
+    def load_rp(keyword):
+        with open(f"saved_{keyword}.txt", "r") as text_file:
+            all_text = text_file.readlines()
+            if all_text[-2][0] == "[":
+                # String formatting to get str(list) into list.
+                results = ast.literal_eval(all_text[-2])
+            else:
+                raise Exception("Error reading the file")
+
+        return results
+
+    def load_rewards(self):
+        return self.load_rp("reward")
+
+    def load_punishments(self):
+        return self.load_rp("punish")
+
+    def generate_rewards(self, debug=False, override=False):
+        if override:
+            return self.load_rewards()
+        return self.generate_rp(RewardSystem(), "reward", debug=debug)
+
+    def generate_punishments(self, debug = False, override=False):
+        if override:
+            return self.load_punishments()
+        return self.generate_rp(PunishSystem(), "punish", debug=debug)
+
+    def monitor_rp(self, reward_sys, loader, analyzer, override=False):
+        reward_running, punish_running = False, False
+        # Initializing all variables
+        r_start_date, r_end_date, goal_efficiency, r_level, r_end_datetime = [None]*5
+        goal_inefficiency, p_type, p_amount, p_end_datetime = [None]*4
+
         while True:
             # Setting all random parameters
-            goal_efficiency, r_level, r_period, r_start_date, r_end_date = reward_sys.samplepick(debug=True)
-            goal_inefficiency, p_type, p_amount, p_period, p_start_date, p_end_date = punish_sys.samplepick(debug=True)
-            a, b = False
+            if not reward_running:
+                goal_efficiency, r_level, r_period, r_start_date, r_end_date = self.generate_rewards(override=override)
+                # Calculating date-times for period
+                r_end_datetime = datetime.now() + timedelta(r_period)
+                reward_running = True
+            if not punish_running:
+                goal_inefficiency, p_type, p_amount, p_period, p_start_date, p_end_date = self.generate_rewards(override=override)
+                # Calculating date-times for period
+                p_end_datetime = datetime.now() + timedelta(p_period)
+                reward_running = True
 
-            # Calculating date-times for rps period
-            r_end_datetime = datetime.now() + timedelta(r_period)
-            p_end_datetime = datetime.now() + timedelta(p_period)
-
-            while not a and not b:
-                time.sleep(5)
+            while reward_running and punish_running:
+                time.sleep(3600)
                 efficiencies = Helper.get_actual_efficiency(loader, analyzer, r_start_date, r_end_date)
                 actual_efficiency = efficiencies[0]
                 actual_inefficiency = efficiencies[1]
 
                 # Checking Rewards
-                a = self.check_reward_status(reward_sys, goal_efficiency, actual_efficiency, r_level, r_end_datetime)
+                reward_running = self.check_reward_status(reward_sys, goal_efficiency, actual_efficiency, r_level, r_end_datetime)
 
                 # Checking punishments
-                b = self.check_punishment_status(punish_sys, goal_inefficiency, actual_inefficiency, p_type, p_amount, p_end_datetime)
+                punish_running = self.check_punishment_status(goal_inefficiency, actual_inefficiency, p_type, p_amount, p_end_datetime)
 
         return None

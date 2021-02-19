@@ -30,3 +30,5 @@ class RewardSystem:
             print(string)
         return [pick_efficiency_range, pick_level, pick_period, start_date, end_date]
 
+    def __repr__(self):
+        return "Reward System"
