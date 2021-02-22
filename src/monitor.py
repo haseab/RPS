@@ -1,6 +1,6 @@
 import time
 from datetime import datetime, timedelta
-from helper import Helper
+from tiba_helper import TiBAHelper
 import matplotlib.pyplot as plt
 from reward_system import RewardSystem
 from punish_system import PunishSystem
@@ -12,19 +12,24 @@ import random
 
 class Monitor:
     def __init__(self):
-        self.dates = []
+        self.reward_dates = []
         self.efficiencies = []
+        self.punish_dates = []
         self.inefficiencies = []
+        self.override = False
+        self.path = os.path.dirname(os.getcwd()) + r"\local"
 
-        path = os.path.dirname(os.getcwd()) + r"\local\ifttt_key.txt"
-        with open(path, 'r') as file:
+        with open(self.path + r"\ifttt_key.txt", 'r') as file:
             self.key = file.readline()
+
+    def check_override(self):
+        with open(self.path + r"\override_setting.txt", 'r') as file:
             self.override = bool(file.readline())
 
     def check_reward_status(self, reward_sys, prob_efficiency, actual_efficiency, r_level, end_datetime):
         current_datetime = datetime.now()
 
-        self.dates.append(current_datetime)
+        self.reward_dates.append(current_datetime)
         self.efficiencies.append(actual_efficiency)
 
         if current_datetime > end_datetime:
@@ -34,23 +39,27 @@ class Monitor:
                     string += f" --->  {reward} \n"
                 resp = requests.post(f"https://maker.ifttt.com/trigger/rewarded/with/key/{self.key}",
                                      data={"value1": r_level, "value2": string})
-                plt.scatter(self.dates, self.efficiencies)
+                plt.scatter(self.reward_dates, self.efficiencies)
                 plt.show()
+            self.reward_dates = []
+            self.efficiencies = []
             return False
         return True
 
     def check_punishment_status(self, prob_inefficiency, actual_inefficiency,p_type, p_amount, end_datetime):
         current_datetime = datetime.now()
 
-        # self.dates.append(current_datetime)
+        self.punish_dates.append(current_datetime)
         self.inefficiencies.append(actual_inefficiency)
 
         if current_datetime > end_datetime:
             if prob_inefficiency[round(actual_inefficiency*100, 1)] == 1:
                 string = f"""{p_type} for {p_amount}"""
                 resp = requests.post(f"https://maker.ifttt.com/trigger/punished/with/key/{self.key}", data={"value1": string})
-                plt.scatter(self.dates, self.inefficiencies)
+                plt.scatter(self.punish_dates, self.inefficiencies)
                 plt.show()
+            self.punish_dates = []
+            self.inefficiencies = []
             return False
         return True
 
@@ -99,31 +108,37 @@ class Monitor:
 
         while True:
             # Setting all random parameters
+            self.check_override()
             if not reward_running:
                 prob_efficiency, r_level, r_period, r_start_date, r_end_date = self.generate_rewards(override=self.override)
                 # Calculating date-times for period
-                r_end_datetime = datetime.now() + timedelta(r_period-random.random())
+                r_end_datetime = datetime.strptime(r_end_date, "%Y-%m-%d") + timedelta(random.random())
                 reward_running = True
-                print("reward_running")
+                # print("reward is now running")
 
             if not punish_running:
                 prob_inefficiency, p_type, p_amount, p_period, p_start_date, p_end_date = self.generate_punishments(override=self.override)
                 # Calculating date-times for period
-                p_end_datetime = datetime.now() + timedelta(p_period-random.random())
+                p_end_datetime = datetime.strptime(p_end_date, "%Y-%m-%d") + timedelta(random.random())
                 punish_running = True
-                print("punish_running")
+                # print("punishment is now running")
 
             while reward_running and punish_running:
-                print('hello')
-                time.sleep(5)
-                efficiencies = Helper.get_actual_efficiency(loader, analyzer, r_start_date, r_end_date)
-                actual_efficiency = efficiencies[0]
-                actual_inefficiency = efficiencies[1]
+
+                # print(f'reward length: {r_period}')
+                # print(f'punish length: {p_period}')
+                # print('checking status now... \n')
+                time.sleep(3600)
+                efficiencies = TiBAHelper.get_actual_efficiency(loader, analyzer, r_start_date, r_end_date)
+                actual_efficiency = efficiencies[1]
+                actual_inefficiency = efficiencies[2]
 
                 # Checking Rewards
+                # reward_running = False
                 reward_running = self.check_reward_status(reward_sys, prob_efficiency, actual_efficiency, r_level, r_end_datetime)
 
                 # Checking punishments
+                # punish_running = False
                 punish_running = self.check_punishment_status(prob_inefficiency, actual_inefficiency, p_type, p_amount, p_end_datetime)
 
         return None
