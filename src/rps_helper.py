@@ -1,7 +1,7 @@
 import numpy as np
 
 
-class Helper:
+class RPSHelper:
 
     @staticmethod
     def distribution():

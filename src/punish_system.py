@@ -1,13 +1,13 @@
 import random
 import numpy as np
 from datetime import datetime, timedelta
-from helper import Helper
+from rps_helper import RPSHelper
 
 
-class PunishSystem():
+class PunishSystem:
 
     def __init__(self):
-        self.probabilities = Helper.distribution()[1]
+        self.probabilities = RPSHelper.distribution()[1]
         self.amount = {"Money Lost": ["$50", "$100", "$150"],
                        "No Access to Comp": ["8 hours", "16 hours", "24 hours"],
                        "Sleep on Floor": ["1 night", "2 nights"]

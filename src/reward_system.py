@@ -1,12 +1,12 @@
 import random
 import numpy as np
 from datetime import datetime, timedelta
-from helper import Helper
+from rps_helper import RPSHelper
 
 class RewardSystem:
 
     def __init__(self):
-        self.probabilities = Helper.distribution()[0]
+        self.probabilities = RPSHelper.distribution()[0]
         self.level = ["Level 1", "Level 2", "Level 3"]
         self.rewards = {"Level 1": ["1 Pizza", "2 Burgers", "1 Osmows", "2 Chips"],
                         "Level 2": ["2 Pizzas", "4 Burgers", "2 Osmows", "4 Chips"],
