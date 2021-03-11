@@ -25,6 +25,7 @@ class Monitor:
     def check_override(self):
         with open(self.path + r"\override_setting.txt", 'r') as file:
             self.override = bool(file.readline())
+        return self.override
 
     def check_reward_status(self, reward_sys, prob_efficiency, actual_efficiency, r_level, end_datetime):
         current_datetime = datetime.now()
@@ -37,8 +38,7 @@ class Monitor:
                 string = ""
                 for reward in reward_sys.rewards[r_level]:
                     string += f" --->  {reward} \n"
-                resp = requests.post(f"https://maker.ifttt.com/trigger/rewarded/with/key/{self.key}",
-                                     data={"value1": r_level, "value2": string})
+                resp = requests.post(f"https://maker.ifttt.com/trigger/rewarded/with/key/{self.key}", data={"value1": r_level, "value2": string})
                 plt.scatter(self.reward_dates, self.efficiencies)
                 plt.show()
             self.reward_dates = []
@@ -95,7 +95,7 @@ class Monitor:
             return self.load_rewards()
         return self.generate_rp(RewardSystem(), "reward", debug=debug)
 
-    def generate_punishments(self, debug = False, override=False):
+    def generate_punishments(self, debug=False, override=False):
         if override:
             return self.load_punishments()
         return self.generate_rp(PunishSystem(), "punish", debug=debug)
@@ -105,10 +105,9 @@ class Monitor:
         # Initializing all variables
         r_start_date, r_end_date, prob_efficiency, r_level, r_end_datetime = [None]*5
         prob_inefficiency, p_type, p_amount, p_end_datetime = [None]*4
-
         while True:
             # Setting all random parameters
-            self.check_override()
+            resp = self.check_override()
             if not reward_running:
                 prob_efficiency, r_level, r_period, r_start_date, r_end_date = self.generate_rewards(override=self.override)
                 # Calculating date-times for period
@@ -124,21 +123,9 @@ class Monitor:
                 # print("punishment is now running")
 
             while reward_running and punish_running:
-
-                # print(f'reward length: {r_period}')
-                # print(f'punish length: {p_period}')
-                # print('checking status now... \n')
                 time.sleep(3600)
-                efficiencies = TiBAHelper.get_actual_efficiency(loader, analyzer, r_start_date, r_end_date)
-                actual_efficiency = efficiencies[1]
-                actual_inefficiency = efficiencies[2]
-
-                # Checking Rewards
-                # reward_running = False
+                actual_efficiency, actual_inefficiency = TiBAHelper.get_actual_efficiency(loader, analyzer, r_start_date, r_end_date)
                 reward_running = self.check_reward_status(reward_sys, prob_efficiency, actual_efficiency, r_level, r_end_datetime)
-
-                # Checking punishments
-                # punish_running = False
                 punish_running = self.check_punishment_status(prob_inefficiency, actual_inefficiency, p_type, p_amount, p_end_datetime)
 
         return None
